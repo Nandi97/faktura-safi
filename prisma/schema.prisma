@@ -84,3 +84,58 @@ model Authenticator {
 
   @@id([userId, credentialID])
 }
+
+model Customer {
+  id       String    @id @default(cuid())
+  name     String
+  email    String
+  phone    String
+  address  String?
+  quotes   Quote[]
+  invoices Invoice[]
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+}
+
+model Quote {
+  id         String      @id @default(cuid())
+  customerId String
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  items      QuoteItem[]
+  total      Float
+  status     String      @default("pending")
+  createdAt  DateTime    @default(now())
+  Invoice    Invoice[]
+}
+
+model QuoteItem {
+  id      String @id @default(cuid())
+  quoteId String
+  Quote   Quote  @relation(fields: [quoteId], references: [id])
+}
+
+model Invoice {
+  id         String    @id @default(cuid())
+  quoteId    String
+  quote      Quote     @relation(fields: [quoteId], references: [id])
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  total      Float
+  status     String    @default("unpaid")
+  dueDate    DateTime
+  createdAt  DateTime  @default(now())
+  Payment    Payment[]
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  amount    Float
+  paidAt    DateTime @default(now())
+}

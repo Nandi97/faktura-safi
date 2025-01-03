@@ -15,12 +15,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 	return (
 		<KBar>
 			{/* <AppSidebar /> */}
-			
-				<Header />
-				{/* page main content */}
-				{children}
-				{/* page main content ends */}
-			
+
+			<Header />
+			{/* page main content */}
+			{children}
+			{/* page main content ends */}
 		</KBar>
 	);
 }
