@@ -85,6 +85,19 @@ model Authenticator {
   @@id([userId, credentialID])
 }
 
+model Menu {
+  id           String  @id @default(cuid())
+  title        String  @unique
+  description  String?
+  illustration String
+  link         String
+  buttonText   String
+  listOrder    Int     @unique
+
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
+}
+
 model Customer {
   id       String    @id @default(cuid())
   name     String
@@ -93,6 +106,10 @@ model Customer {
   address  String?
   quotes   Quote[]
   invoices Invoice[]
+
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime?
 }
 
 model Product {
@@ -100,6 +117,10 @@ model Product {
   name        String
   description String?
   price       Float
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime?
 }
 
 model Quote {
@@ -109,8 +130,11 @@ model Quote {
   items      QuoteItem[]
   total      Float
   status     String      @default("pending")
-  createdAt  DateTime    @default(now())
   Invoice    Invoice[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime?
 }
 
 model QuoteItem {
@@ -128,8 +152,11 @@ model Invoice {
   total      Float
   status     String    @default("unpaid")
   dueDate    DateTime
-  createdAt  DateTime  @default(now())
   Payment    Payment[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime?
 }
 
 model Payment {
@@ -138,4 +165,7 @@ model Payment {
   invoice   Invoice  @relation(fields: [invoiceId], references: [id])
   amount    Float
   paidAt    DateTime @default(now())
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
 }
