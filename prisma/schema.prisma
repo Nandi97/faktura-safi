@@ -123,40 +123,115 @@ model Product {
   deletedAt DateTime?
 }
 
-model Quote {
-  id         String      @id @default(cuid())
-  customerId String
-  customer   Customer    @relation(fields: [customerId], references: [id])
-  items      QuoteItem[]
-  total      Float
-  status     String      @default("pending")
-  Invoice    Invoice[]
+model QuoteStatus {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
   deletedAt DateTime?
+
+  quotes Quote[]
+}
+
+model Quote {
+  id            String  @id @default(cuid())
+  quoteNumber   String  @unique
+  customerId    String
+  taxId         String?
+  total         Float
+  quoteStatusId String?
+  comment       String  @default("Pending Approval")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime?
+
+  tax         Tax?         @relation(fields: [taxId], references: [id]) // Direct relationship
+  customer    Customer     @relation(fields: [customerId], references: [id])
+  quoteStatus QuoteStatus? @relation(fields: [quoteStatusId], references: [id])
+
+  invoice Invoice[]
+  items   QuoteItem[]
+}
+
+model Unit {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime?
+
+  quoteItem QuoteItem[]
 }
 
 model QuoteItem {
-  id      String @id @default(cuid())
-  quoteId String
-  Quote   Quote  @relation(fields: [quoteId], references: [id])
-}
-
-model Invoice {
-  id         String    @id @default(cuid())
-  quoteId    String
-  quote      Quote     @relation(fields: [quoteId], references: [id])
-  customerId String
-  customer   Customer  @relation(fields: [customerId], references: [id])
-  total      Float
-  status     String    @default("unpaid")
-  dueDate    DateTime
-  Payment    Payment[]
+  id       String @id @default(cuid())
+  product  String
+  unitId   String
+  quantity Int
+  price    Float
+  quoteId  String
 
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
   deletedAt DateTime?
+
+  quote Quote @relation(fields: [quoteId], references: [id])
+  unit  Unit  @relation(fields: [unitId], references: [id])
+}
+
+model InvoiceStatus {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime?
+
+  invoice Invoice[]
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  invoiceNumber   String   @unique
+  quoteId         String
+  customerId      String
+  total           Float
+  comment         String   @default("unpaid")
+  dueDate         DateTime
+  taxId           String?
+  invoiceStatusId String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime?
+
+  tax           Tax?           @relation(fields: [taxId], references: [id]) // Direct relationship
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  quote         Quote          @relation(fields: [quoteId], references: [id])
+  invoiceStatus InvoiceStatus? @relation(fields: [invoiceStatusId], references: [id])
+
+  payment Payment[]
+}
+
+model Tax {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  rate        Float // Tax rate as a percentage (e.g., 5 for 5%)
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime?
+
+  quote   Quote[]
+  invoice Invoice[]
 }
 
 model Payment {

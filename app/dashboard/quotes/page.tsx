@@ -1,21 +1,18 @@
+import { searchParamsCache } from '@/lib/searchparams';
+import { SearchParams } from 'nuqs/parsers';
 import React from 'react';
-import PageContainer from '@/components/layout/page-container';
+import QuoteListingPage from './_components/quote-listing-page';
 
+type pageProps = {
+	searchParams: SearchParams;
+};
 export const metadata = {
 	title: 'Dashboard : Quote',
 };
-const Dashboard = () => {
-	return (
-		<PageContainer scrollable>
-			<div className="space-y-2">
-				<div className="flex items-center justify-between space-y-2">
-					<h2 className="text-2xl font-bold tracking-tight">
-						Hi, Welcome Quote dashboard
-					</h2>
-				</div>
-			</div>
-		</PageContainer>
-	);
+const Page = ({ searchParams }: pageProps) => {
+	// Allow nested RSCs to access the search params (in a type-safe way)
+	searchParamsCache.parse(searchParams);
+	return <QuoteListingPage />;
 };
 
-export default Dashboard;
+export default Page;

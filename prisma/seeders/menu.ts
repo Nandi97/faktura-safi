@@ -5,7 +5,7 @@ export function getMenus() {
 			description:
 				'Create and manage customer quotations with dynamic pricing and export options.',
 			illustration: '/assets/images/quotation.svg',
-			link: '/dashboard/quote',
+			link: '/dashboard/quotes',
 			buttonText: 'View Quotations',
 			listOrder: 1,
 		},
@@ -13,7 +13,7 @@ export function getMenus() {
 			title: 'Invoices',
 			description: 'Track invoices with payment status and generate PDF receipts.',
 			illustration: '/assets/images/invoice.svg',
-			link: '/dashboard/invoice',
+			link: '/dashboard/invoices',
 			buttonText: 'View Invoices',
 			listOrder: 2,
 		},
