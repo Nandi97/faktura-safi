@@ -7,7 +7,7 @@ interface CardContent {
 	illustration: string;
 	title: string;
 	altText: string;
-	description?: string|null;
+	description?: string | null;
 	link: string;
 	buttonText: string;
 }
