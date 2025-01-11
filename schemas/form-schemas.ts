@@ -1,27 +1,124 @@
 import * as z from 'zod';
 
-export const quotationSchema = z.object({
-	firstname: z.string().min(3, { message: 'Product Name must be at least 3 characters' }),
-	lastname: z.string().min(3, { message: 'Product Name must be at least 3 characters' }),
-	email: z.string().email({ message: 'Product Name must be at least 3 characters' }),
-	contactno: z.coerce.number(),
-	country: z.string().min(1, { message: 'Please select a category' }),
-	city: z.string().min(1, { message: 'Please select a category' }),
-	// jobs array is for the dynamic fields
-	jobs: z.array(
-		z.object({
-			jobcountry: z.string().min(1, { message: 'Please select a category' }),
-			jobcity: z.string().min(1, { message: 'Please select a category' }),
-			jobtitle: z.string().min(3, { message: 'Product Name must be at least 3 characters' }),
-			employer: z.string().min(3, { message: 'Product Name must be at least 3 characters' }),
-			startdate: z.string().refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), {
-				message: 'Start date should be in the format YYYY-MM-DD',
-			}),
-			enddate: z.string().refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), {
-				message: 'End date should be in the format YYYY-MM-DD',
-			}),
+export const customerSchema = z.object({
+	fullName: z
+		.string()
+		.min(3, { message: 'Full name must be at least 3 characters long.' })
+		.max(100, { message: 'Full name must be less than 100 characters.' })
+		.regex(/^[a-zA-Z\s]+$/, { message: 'Full name can only contain letters and spaces.' }),
+
+	email: z.string().email({ message: 'Invalid email address.' }),
+
+	phone: z
+		.string()
+		.min(10, { message: 'Phone number must be at least 10 digits.' })
+		.max(15, { message: 'Phone number must be less than 15 digits.' })
+		.regex(/^\+?[0-9\s-]+$/, {
+			message: 'Phone number must contain only numbers, spaces, or hyphens.',
+		}),
+
+	companyName: z
+		.string()
+		.max(100, { message: 'Company name must be less than 100 characters.' })
+		.optional(),
+
+	street: z
+		.string()
+		.max(100, { message: 'Street address must be less than 100 characters.' })
+		.optional(),
+
+	city: z.string().max(50, { message: 'City name must be less than 50 characters.' }).optional(),
+
+	state: z
+		.string()
+		.max(50, { message: 'State name must be less than 50 characters.' })
+		.optional(),
+
+	postalCode: z
+		.string()
+		.regex(/^[A-Za-z0-9\s-]+$/, {
+			message: 'Postal code can only contain letters, numbers, spaces, and hyphens.',
 		})
-	),
+		.max(10, { message: 'Postal code must be less than 10 characters.' })
+		.optional(),
+
+	country: z
+		.string()
+		.max(50, { message: 'Country name must be less than 50 characters.' })
+		.optional(),
+
+	notes: z.string().max(500, { message: 'Notes must be less than 500 characters.' }).optional(),
+
+	isActive: z.boolean().default(true),
+});
+
+export const quoteItemSchema = z.object({
+	product: z
+		.string()
+		.min(1, { message: 'Product name is required.' })
+		.max(100, { message: 'Product name must be less than 100 characters.' }),
+
+	description: z
+		.string()
+		.max(500, { message: 'Description must be less than 500 characters.' })
+		.optional(),
+
+	unitId: z.string().cuid({ message: 'Invalid unit ID.' }),
+
+	quantity: z
+		.number()
+		.int({ message: 'Quantity must be an integer.' })
+		.min(1, { message: 'Quantity must be at least 1.' }),
+
+	unitPrice: z.number().positive({ message: 'Unit price must be greater than 0.' }),
+
+	totalPrice: z.number().positive({ message: 'Total price must be greater than 0.' }),
+	// .refine(
+	// 	(value, ctx) => {
+	// 		const parent = ctx.parent as { unitPrice: number; quantity: number };
+	// 		return value === parent.unitPrice * parent.quantity;
+	// 	},
+	// 	{
+	// 		message: 'Total price must equal unit price multiplied by quantity.',
+	// 	}
+	// ),
+
+	quoteId: z.string().uuid({ message: 'Invalid quote ID.' }),
+});
+
+export const quotationSchema = z.object({
+	quoteNumber: z.string().regex(/^Q-\d{8}-\d{4}$/, {
+		message: 'Quote number must follow the format Q-YYYYMMDD-XXXX.',
+	}),
+
+	customerId: z.string().uuid({ message: 'Invalid customer ID.' }).optional(),
+
+	customer: customerSchema.optional(), // Create a new customer
+
+	taxId: z.string().cuid({ message: 'Invalid tax ID.' }).optional().nullable(),
+
+	subtotal: z.number().nonnegative({ message: 'Subtotal must be a non-negative number.' }),
+
+	total: z.number().nonnegative({ message: 'Total must be a non-negative number.' }),
+
+	quoteStatusId: z.string().uuid({ message: 'Invalid quote status ID.' }).optional().nullable(),
+
+	comment: z
+		.string()
+		.max(500, { message: 'Comment must be less than 500 characters.' })
+		.default('Pending Approval'),
+
+	validUntil: z.string().date().optional().nullable(),
+
+	tags: z
+		.array(
+			z.object({
+				id: z.string().max(20, { message: 'Each tag must be less than 20 characters.' }),
+				text: z.string(),
+			})
+		)
+		.optional(),
+	quoteItems: z.array(quoteItemSchema),
 });
 
 export type QuotationFormValues = z.infer<typeof quotationSchema>;

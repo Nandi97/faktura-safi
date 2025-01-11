@@ -8,6 +8,7 @@ import {
 	AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
+import { Tag, TagInput } from 'emblor';
 import {
 	Form,
 	FormControl,
@@ -32,58 +33,84 @@ import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertTriangleIcon, Trash, Trash2Icon } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { SubmitHandler, useFieldArray, useForm } from 'react-hook-form';
+import React, { useState } from 'react';
+import { SubmitHandler, useFieldArray, useForm, useWatch } from 'react-hook-form';
+import { Textarea } from '@/components/ui/textarea';
+import { useTaxes } from '@/hooks/use-taxes';
+import { format } from 'date-fns';
+import { Icon } from '@iconify/react/dist/iconify.js';
+import { useUOMs } from '@/hooks/use-uoms';
+import { useQuoteItems } from '@/hooks/use-quote-items';
 
 interface ProfileFormType {
 	initialData?: any | null;
 	categories?: any;
 }
 const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categories }) => {
+	const [tags, setTags] = useState<Tag[]>([]);
 	const params = useParams();
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
+	const [quoteNumber, setQuoteNumber] = useState<string>('');
 	const [imgLoading, setImgLoading] = useState(false);
-	const title = initialData ? 'Edit product' : 'Create Your Profile';
+	const title = initialData ? 'Edit Quote' : 'Create A Quote';
 	const description = initialData
-		? 'Edit a product.'
-		: 'To create your resume, we first need some basic information about you.';
-	const toastMessage = initialData ? 'Product updated.' : 'Product created.';
+		? 'Edit a Quote.'
+		: 'To create your quote,fill in all the information';
+	const toastMessage = initialData ? 'Quote updated.' : 'Quote created.';
 	const action = initialData ? 'Save changes' : 'Create';
 	const [previousStep, setPreviousStep] = useState(0);
 	const [currentStep, setCurrentStep] = useState(0);
 	const [data, setData] = useState({});
 	const delta = currentStep - previousStep;
-
+	const getDefaultValidUntilDate = (): Date => {
+		const today = new Date();
+		const oneWeekFromNow = new Date(today.setDate(today.getDate() + 7));
+		return oneWeekFromNow;
+	};
 	const defaultValues = {
-		jobs: [
+		quoteItems: [
 			{
-				jobtitle: '',
-				employer: '',
-				startdate: '',
-				enddate: '',
-				jobcountry: '',
-				jobcity: '',
+				product: '',
+				description: '',
+				unitId: '',
+				quantity: 0,
+				unitPrice: 0,
+				totalPrice: 0,
 			},
 		],
 	};
 
 	const form = useForm<QuotationFormValues>({
 		resolver: zodResolver(quotationSchema),
-		defaultValues,
+		defaultValues: {
+			quoteItems: initialData?.quoteItems || [
+				{
+					product: '',
+					description: '',
+					unitId: '',
+					quantity: 1,
+					unitPrice: 0,
+					totalPrice: 0,
+				},
+			],
+		},
 		mode: 'onChange',
 	});
 
 	const {
 		control,
 		formState: { errors },
+		setValue,
 	} = form;
 
 	const { append, remove, fields } = useFieldArray({
 		control,
-		name: 'jobs',
+		name: 'quoteItems',
 	});
+
+	// console.log('Data', data);
 
 	const onSubmit = async (data: QuotationFormValues) => {
 		try {
@@ -127,27 +154,85 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 	const steps = [
 		{
 			id: 'Step 1',
-			name: 'Personal Information',
-			fields: ['firstname', 'lastname', 'email', 'contactno', 'country', 'city'],
+			name: 'Customer Information',
+			fields: [
+				'customer.fullName',
+				'customer.email',
+				'customer.phone',
+				'customer.companyName',
+				'customer.street',
+				'customer.city',
+				'customer.state',
+				'customer.postalCode',
+				'customer.country',
+				'customer.notes',
+				'customer.isActive',
+			],
 		},
 		{
 			id: 'Step 2',
-			name: 'Professional Informations',
-			// fields are mapping and flattening for the error to be trigger  for the dynamic fields
+			name: 'Quote Details',
+			fields: [
+				'quoteNumber',
+				'taxId',
+				// 'subtotal',
+				// 'total',
+				// 'quoteStatusId',
+				'comment',
+				'validUntil',
+				// 'tags',
+			],
+		},
+		{
+			id: 'Step 3',
+			name: 'Quote Items', // fields are mapping and flattening for the error to be trigger  for the dynamic fields
 			fields: fields
 				?.map((_, index) => [
-					`jobs.${index}.jobtitle`,
-					`jobs.${index}.employer`,
-					`jobs.${index}.startdate`,
-					`jobs.${index}.enddate`,
-					`jobs.${index}.jobcountry`,
-					`jobs.${index}.jobcity`,
+					`quoteItems.${index}.product`,
+					`quoteItems.${index}.description`,
+					`quoteItems.${index}.unitId`,
+					`quoteItems.${index}.quantity`,
+					`quoteItems.${index}.unitPrice`,
+					`quoteItems.${index}.totalPrice`,
 					// Add other field names as needed
 				])
 				.flat(),
 		},
-		{ id: 'Step 3', name: 'Complete' },
 	];
+	// Watch all quote items at once
+
+	// function generateQuoteNumber(): string {
+	// 	const today = new Date();
+	// 	const yyyy = today.getFullYear();
+	// 	const mm = String(today.getMonth() + 1).padStart(2, '0');
+	// 	const dd = String(today.getDate()).padStart(2, '0');
+	// 	const randomDigits = String(Math.floor(1000 + Math.random() * 9000));
+	// 	return `Q-${yyyy}${mm}${dd}-${randomDigits}`;
+	// }
+
+	// Use custom hook to watch quoteItems
+	const quoteItems = useQuoteItems(control);
+
+	// Compute total prices dynamically
+	React.useEffect(() => {
+		quoteItems.forEach((item, index) => {
+			const totalPrice = item.quantity * item.unitPrice || 0;
+			setValue(`quoteItems.${index}.totalPrice`, totalPrice);
+		});
+	}, [quoteItems, setValue]);
+
+	// Generate quote number
+	React.useEffect(() => {
+		if (initialData?.quoteNumber) {
+			setQuoteNumber(initialData.quoteNumber);
+			setValue('quoteNumber', initialData.quoteNumber);
+		} else {
+			const today = new Date();
+			const quoteNum = `Q-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+			setQuoteNumber(quoteNum);
+			setValue('quoteNumber', quoteNum);
+		}
+	}, [initialData, setValue]);
 
 	const next = async () => {
 		const fields = steps[currentStep].fields;
@@ -158,10 +243,11 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 
 		if (!output) return;
 
+		console.log('What Is Step', fields);
 		if (currentStep < steps.length - 1) {
-			if (currentStep === steps.length - 2) {
-				await form.handleSubmit(processForm)();
-			}
+			// if (currentStep === steps.length - 3) {
+			// 	await form.handleSubmit(processForm)();
+			// }
 			setPreviousStep(currentStep);
 			setCurrentStep((step) => step + 1);
 		}
@@ -174,8 +260,11 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 		}
 	};
 
-	const countries = [{ id: 'wow', name: 'india' }];
-	const cities = [{ id: '2', name: 'kerala' }];
+	const countries = [{ id: 'canada', name: 'canada' }];
+	const cities = [{ id: 'hamilton', name: 'Hamilton' }];
+	const states = [{ id: 'ontario', name: 'Ontario - ON' }];
+	const taxes = useTaxes().data;
+	const units = useUOMs().data;
 
 	return (
 		<>
@@ -193,7 +282,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 				)}
 			</div>
 			<Separator />
-			<div className="flex w-full">
+			<div className="flex w-full py-4">
 				<div className="flex flex-col md:w-1/2">
 					<div className="space-y-4">
 						<ul className="flex gap-4">
@@ -234,19 +323,19 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 							onSubmit={form.handleSubmit(processForm)}
 							className="w-full space-y-8"
 						>
-							<div className="w-full">
+							<div className="w-full gap-8 md:grid md:grid-cols-3">
 								{currentStep === 0 && (
 									<>
 										<FormField
 											control={form.control}
-											name="firstname"
+											name="customer.fullName"
 											render={({ field }) => (
 												<FormItem>
-													<FormLabel>First Name</FormLabel>
+													<FormLabel>Full Name</FormLabel>
 													<FormControl>
 														<Input
 															disabled={loading}
-															placeholder="John"
+															placeholder="John Doe"
 															{...field}
 														/>
 													</FormControl>
@@ -256,24 +345,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 										/>
 										<FormField
 											control={form.control}
-											name="lastname"
-											render={({ field }) => (
-												<FormItem>
-													<FormLabel>Last Name</FormLabel>
-													<FormControl>
-														<Input
-															disabled={loading}
-															placeholder="Doe"
-															{...field}
-														/>
-													</FormControl>
-													<FormMessage />
-												</FormItem>
-											)}
-										/>
-										<FormField
-											control={form.control}
-											name="email"
+											name="customer.email"
 											render={({ field }) => (
 												<FormItem>
 													<FormLabel>Email</FormLabel>
@@ -290,10 +362,10 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 										/>
 										<FormField
 											control={form.control}
-											name="contactno"
+											name="customer.phone"
 											render={({ field }) => (
 												<FormItem>
-													<FormLabel>Contact Number</FormLabel>
+													<FormLabel>Phone Number</FormLabel>
 													<FormControl>
 														<Input
 															type="number"
@@ -308,7 +380,25 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 										/>
 										<FormField
 											control={form.control}
-											name="country"
+											name="customer.companyName"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>Company Name?</FormLabel>
+													<FormControl>
+														<Input
+															disabled={loading}
+															placeholder="Company Name"
+															{...field}
+														/>
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+
+										<FormField
+											control={form.control}
+											name="customer.country"
 											render={({ field }) => (
 												<FormItem>
 													<FormLabel>Country</FormLabel>
@@ -327,7 +417,6 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 															</SelectTrigger>
 														</FormControl>
 														<SelectContent>
-															{/* @ts-ignore  */}
 															{countries.map((country) => (
 																<SelectItem
 																	key={country.id}
@@ -344,10 +433,45 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 										/>
 										<FormField
 											control={form.control}
-											name="city"
+											name="customer.state"
 											render={({ field }) => (
 												<FormItem>
-													<FormLabel>City</FormLabel>
+													<FormLabel>Province</FormLabel>
+													<Select
+														disabled={loading}
+														onValueChange={field.onChange}
+														value={field.value}
+														defaultValue={field.value}
+													>
+														<FormControl>
+															<SelectTrigger>
+																<SelectValue
+																	defaultValue={field.value}
+																	placeholder="Select a Province"
+																/>
+															</SelectTrigger>
+														</FormControl>
+														<SelectContent>
+															{states.map((state) => (
+																<SelectItem
+																	key={state.id}
+																	value={state.id}
+																>
+																	{state.name}
+																</SelectItem>
+															))}
+														</SelectContent>
+													</Select>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+										<FormField
+											control={form.control}
+											name="customer.city"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>City/Town</FormLabel>
 													<Select
 														disabled={loading}
 														onValueChange={field.onChange}
@@ -363,7 +487,6 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 															</SelectTrigger>
 														</FormControl>
 														<SelectContent>
-															{/* @ts-ignore  */}
 															{cities.map((city) => (
 																<SelectItem
 																	key={city.id}
@@ -378,16 +501,378 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 												</FormItem>
 											)}
 										/>
+										<FormField
+											control={form.control}
+											name="customer.street"
+											render={({ field }) => (
+												<FormItem className="md:col-span-2">
+													<FormLabel>Street Address</FormLabel>
+													<FormControl>
+														<Input
+															type="text"
+															placeholder="Enter street address"
+															disabled={loading}
+															{...field}
+														/>
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+										<FormField
+											control={form.control}
+											name="customer.postalCode"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>Postal Code</FormLabel>
+													<FormControl>
+														<Input
+															type="text"
+															placeholder="XXX XXX"
+															disabled={loading}
+															{...field}
+														/>
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+										<FormField
+											control={form.control}
+											name="customer.notes"
+											render={({ field }) => (
+												<FormItem className="md:col-span-full">
+													<FormLabel>Notes?</FormLabel>
+													<FormControl>
+														<Textarea
+															placeholder="Enter you contact number"
+															disabled={loading}
+															{...field}
+														/>
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
 									</>
 								)}
-								{currentStep === 1 && <></>}
+								{currentStep === 1 && (
+									<>
+										<FormField
+											control={form.control}
+											name="quoteNumber"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>Quote#</FormLabel>
+													<FormControl>
+														<Input
+															disabled
+															defaultValue={field.value}
+															{...field}
+														/>
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+										<FormField
+											control={form.control}
+											name="taxId"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>City/Town</FormLabel>
+													<Select
+														disabled={loading}
+														onValueChange={field.onChange}
+														value={field.value as string}
+														defaultValue={field.value as string}
+													>
+														<FormControl>
+															<SelectTrigger>
+																<SelectValue
+																	defaultValue={
+																		field.value as string
+																	}
+																	placeholder="Select tax"
+																/>
+															</SelectTrigger>
+														</FormControl>
+														<SelectContent>
+															{taxes?.map((tax) => (
+																<SelectItem
+																	key={tax?.id}
+																	value={tax?.id}
+																>
+																	{`${tax?.rate}% - ${tax?.name}`}
+																</SelectItem>
+															))}
+														</SelectContent>
+													</Select>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+										<FormField
+											control={form.control}
+											name="validUntil"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>Valid Until</FormLabel>
+													<FormControl>
+														<Input
+															type="date"
+															placeholder="Valid until"
+															disabled={loading}
+															{...field}
+														/>
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+										<FormField
+											control={form.control}
+											name="comment"
+											render={({ field }) => (
+												<FormItem className="col-span-full">
+													<FormLabel>Comment</FormLabel>
+													<FormControl>
+														<Input
+															placeholder="Comment"
+															disabled={loading}
+															{...field}
+														/>
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+										{/* <FormField
+											control={form.control}
+											name="tags"
+											render={({ field }) => (
+												<FormItem className="col-span-full">
+													<FormLabel>Tag</FormLabel>
+													<FormControl>
+														<TagInput
+															{...field}
+															placeholder="Enter a topic"
+															tags={tags}
+															className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+															setTags={(newTags) => {
+																setTags(newTags);
+																form.setValue(
+																	'tags',
+																	newTags as [Tag, ...Tag[]]
+																);
+															}}
+														/>
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/> */}
+									</>
+								)}
 								{currentStep === 2 && (
-									<div>
-										<h1>Completed</h1>
-										<pre className="whitespace-pre-wrap">
-											{JSON.stringify(data)}
-										</pre>
-									</div>
+									<>
+										{fields?.map((field, index) => (
+											<Accordion
+												type="single"
+												collapsible
+												defaultValue="item-1"
+												className="col-span-full"
+												key={field.id}
+											>
+												<AccordionItem value="item-1">
+													<AccordionTrigger
+														className={cn(
+															'relative !no-underline [&[data-state=closed]>button]:hidden [&[data-state=open]>.alert]:hidden',
+															errors?.quoteItems?.[index] &&
+																'text-red-700'
+														)}
+													>
+														{`Quotation Item ${index + 1}`}
+
+														<Button
+															variant="outline"
+															size="icon"
+															className="absolute right-8"
+															onClick={() => remove(index)}
+														>
+															<Icon
+																icon="lucide:trash-2"
+																className="h-4 w-4"
+															/>
+														</Button>
+														{errors?.quoteItems?.[index] && (
+															<span className="alert absolute right-8">
+																<AlertTriangleIcon className="h-4 w-4 text-red-700" />
+															</span>
+														)}
+													</AccordionTrigger>
+													<AccordionContent>
+														<div
+															className={cn(
+																'relative mb-4 gap-8 rounded-md border p-4 md:grid md:grid-cols-3'
+															)}
+														>
+															<FormField
+																control={form.control}
+																name={`quoteItems.${index}.product`}
+																render={({ field }) => (
+																	<FormItem>
+																		<FormLabel>
+																			Product
+																		</FormLabel>
+																		<FormControl>
+																			<Input
+																				type="text"
+																				disabled={loading}
+																				{...field}
+																			/>
+																		</FormControl>
+																		<FormMessage />
+																	</FormItem>
+																)}
+															/>
+															<FormField
+																control={form.control}
+																name={`quoteItems.${index}.description`}
+																render={({ field }) => (
+																	<FormItem className="col-span-2">
+																		<FormLabel>
+																			Description
+																		</FormLabel>
+																		<FormControl>
+																			<Input
+																				type="text"
+																				disabled={loading}
+																				{...field}
+																			/>
+																		</FormControl>
+																		<FormMessage />
+																	</FormItem>
+																)}
+															/>
+															<div className="flex items-center md:col-span-1">
+																<FormField
+																	control={form.control}
+																	name={`quoteItems.${index}.unitId`}
+																	render={({ field }) => (
+																		<FormItem className="w-2/5">
+																			<FormLabel>
+																				UOM
+																			</FormLabel>
+																			<Select
+																				disabled={loading}
+																				onValueChange={
+																					field.onChange
+																				}
+																				value={
+																					field.value as string
+																				}
+																				defaultValue={
+																					field.value as string
+																				}
+																			>
+																				<FormControl>
+																					<SelectTrigger className="rounded-r-none p-1">
+																						<SelectValue
+																							defaultValue={
+																								field.value as string
+																							}
+																							placeholder="Select tax"
+																						/>
+																					</SelectTrigger>
+																				</FormControl>
+																				<SelectContent>
+																					{units?.map(
+																						(tax) => (
+																							<SelectItem
+																								key={
+																									tax?.id
+																								}
+																								value={
+																									tax?.id
+																								}
+																							>
+																								{
+																									tax?.name
+																								}
+																							</SelectItem>
+																						)
+																					)}
+																				</SelectContent>
+																			</Select>
+																			<FormMessage />
+																		</FormItem>
+																	)}
+																/>
+																<FormField
+																	control={form.control}
+																	name={`quoteItems.${index}.quantity`}
+																	render={({ field }) => (
+																		<FormItem className="w-3/5">
+																			<FormLabel>
+																				Quantity
+																			</FormLabel>
+																			<FormControl>
+																				<Input
+																					type="number"
+																					className="rounded-l-none"
+																					min={1}
+																					disabled={
+																						loading
+																					}
+																					{...field}
+																				/>
+																			</FormControl>
+																			<FormMessage />
+																		</FormItem>
+																	)}
+																/>
+															</div>
+															<FormField
+																control={form.control}
+																name={`quoteItems.${index}.unitPrice`}
+																render={({ field }) => (
+																	<FormItem>
+																		<FormLabel>Price</FormLabel>
+																		<FormControl>
+																			<Input
+																				type="number"
+																				disabled={loading}
+																				{...field}
+																			/>
+																		</FormControl>
+																		<FormMessage />
+																	</FormItem>
+																)}
+															/>
+															<FormField
+																control={form.control}
+																name={`quoteItems.${index}.totalPrice`}
+																render={({ field }) => (
+																	<FormItem>
+																		<FormLabel>Total</FormLabel>
+																		<FormControl>
+																			<Input
+																				type="number"
+																				disabled
+																				{...field}
+																			/>
+																		</FormControl>
+																		<FormMessage />
+																	</FormItem>
+																)}
+															/>
+														</div>
+													</AccordionContent>
+												</AccordionItem>
+											</Accordion>
+										))}
+									</>
 								)}
 							</div>
 						</form>

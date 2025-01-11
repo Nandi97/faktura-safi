@@ -99,13 +99,21 @@ model Menu {
 }
 
 model Customer {
-  id       String    @id @default(cuid())
-  name     String
-  email    String
-  phone    String
-  address  String?
-  quotes   Quote[]
-  invoices Invoice[]
+  id             String    @id @default(cuid())
+  fullName       String
+  email          String
+  phone          String
+  alternatePhone String?
+  companyName    String?
+  street         String?
+  city           String?
+  state          String?
+  postalCode     String?
+  country        String?
+  notes          String?
+  isActive       Boolean   @default(true)
+  quotes         Quote[]
+  invoices       Invoice[]
 
   createdAt DateTime? @default(now())
   updatedAt DateTime? @updatedAt
@@ -136,13 +144,15 @@ model QuoteStatus {
 }
 
 model Quote {
-  id            String  @id @default(cuid())
-  quoteNumber   String  @unique
+  id            String    @id @default(cuid())
+  quoteNumber   String    @unique
   customerId    String
   taxId         String?
+  subtotal      Float
   total         Float
   quoteStatusId String?
-  comment       String  @default("Pending Approval")
+  comment       String    @default("Pending Approval")
+  validUntil    DateTime?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
@@ -169,12 +179,13 @@ model Unit {
 }
 
 model QuoteItem {
-  id       String @id @default(cuid())
-  product  String
-  unitId   String
-  quantity Int
-  price    Float
-  quoteId  String
+  id         String @id @default(cuid())
+  product    String
+  unitId     String
+  quantity   Int
+  price      Float
+  totalPrice Float
+  quoteId    String
 
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
