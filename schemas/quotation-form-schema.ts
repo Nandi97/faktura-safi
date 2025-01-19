@@ -72,18 +72,9 @@ export const quoteItemSchema = z.object({
 
 	unitPrice: z.number().positive({ message: 'Unit price must be greater than 0.' }),
 
-	totalPrice: z.number().positive({ message: 'Total price must be greater than 0.' }),
-	// .refine(
-	// 	(value, ctx) => {
-	// 		const parent = ctx.parent as { unitPrice: number; quantity: number };
-	// 		return value === parent.unitPrice * parent.quantity;
-	// 	},
-	// 	{
-	// 		message: 'Total price must equal unit price multiplied by quantity.',
-	// 	}
-	// ),
+	totalPrice: z.number().min(0, 'Total price must be at least 0'),
 
-	quoteId: z.string().uuid({ message: 'Invalid quote ID.' }),
+	quoteId: z.string().uuid({ message: 'Invalid quote ID.' }).optional(),
 });
 
 export const quotationSchema = z.object({

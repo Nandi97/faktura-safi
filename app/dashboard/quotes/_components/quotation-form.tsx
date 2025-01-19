@@ -8,7 +8,6 @@ import {
 	AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { Tag, TagInput } from 'emblor';
 import {
 	Form,
 	FormControl,
@@ -17,7 +16,6 @@ import {
 	FormLabel,
 	FormMessage,
 } from '@/components/ui/form';
-import { Heading } from '@/components/ui/custom/heading';
 import { Input } from '@/components/ui/input';
 import {
 	Select,
@@ -27,48 +25,41 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { quotationSchema, type QuotationFormValues } from '@/schemas/form-schemas';
-// import { profileSchema, type ProfileFormValues } from '@/schemas/form-schemas';
+import { quotationSchema, type QuotationFormValues } from '@/schemas/quotation-form-schema';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertTriangleIcon, Trash, Trash2Icon } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
-import React, { useState } from 'react';
-import { SubmitHandler, useFieldArray, useForm, useWatch } from 'react-hook-form';
-import { Textarea } from '@/components/ui/textarea';
+import { useEffect, useState } from 'react';
+import { SubmitHandler, useFieldArray, useForm } from 'react-hook-form';
+import { Heading } from '@/components/ui/custom/heading';
 import { useTaxes } from '@/hooks/use-taxes';
-import { format } from 'date-fns';
-import { Icon } from '@iconify/react/dist/iconify.js';
 import { useUOMs } from '@/hooks/use-uoms';
-import { useQuoteItems } from '@/hooks/use-quote-items';
+import { Textarea } from '@/components/ui/textarea';
+import { Icon } from '@iconify/react/dist/iconify.js';
+import QuotationPreview from './quotation-preview';
 
 interface ProfileFormType {
-	initialData?: any | null;
-	categories?: any;
+	initialData: QuotationFormValues;
 }
-const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categories }) => {
-	const [tags, setTags] = useState<Tag[]>([]);
+const ProfileCreateForm: React.FC<ProfileFormType> = ({ initialData }) => {
 	const params = useParams();
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
-	const [quoteNumber, setQuoteNumber] = useState<string>('');
 	const [imgLoading, setImgLoading] = useState(false);
-	const title = initialData ? 'Edit Quote' : 'Create A Quote';
+	const title = initialData ? 'Edit product' : 'Create Your Profile';
 	const description = initialData
-		? 'Edit a Quote.'
-		: 'To create your quote,fill in all the information';
-	const toastMessage = initialData ? 'Quote updated.' : 'Quote created.';
+		? 'Edit a product.'
+		: 'To create your resume, we first need some basic information about you.';
+	const toastMessage = initialData ? 'Product updated.' : 'Product created.';
 	const action = initialData ? 'Save changes' : 'Create';
 	const [previousStep, setPreviousStep] = useState(0);
 	const [currentStep, setCurrentStep] = useState(0);
 	const [data, setData] = useState({});
+	const [quoteNumber, setQuoteNumber] = useState<string>('');
 	const delta = currentStep - previousStep;
-	const getDefaultValidUntilDate = (): Date => {
-		const today = new Date();
-		const oneWeekFromNow = new Date(today.setDate(today.getDate() + 7));
-		return oneWeekFromNow;
-	};
+
 	const defaultValues = {
 		quoteItems: [
 			{
@@ -90,7 +81,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 					product: '',
 					description: '',
 					unitId: '',
-					quantity: 1,
+					quantity: 0,
 					unitPrice: 0,
 					totalPrice: 0,
 				},
@@ -100,6 +91,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 	});
 
 	const {
+		watch,
 		control,
 		formState: { errors },
 		setValue,
@@ -109,9 +101,8 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 		control,
 		name: 'quoteItems',
 	});
-
-	// console.log('Data', data);
-
+	const formValues = watch();
+	console.log('Watch Form Values', formValues);
 	const onSubmit = async (data: QuotationFormValues) => {
 		try {
 			setLoading(true);
@@ -199,30 +190,9 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 				.flat(),
 		},
 	];
-	// Watch all quote items at once
-
-	// function generateQuoteNumber(): string {
-	// 	const today = new Date();
-	// 	const yyyy = today.getFullYear();
-	// 	const mm = String(today.getMonth() + 1).padStart(2, '0');
-	// 	const dd = String(today.getDate()).padStart(2, '0');
-	// 	const randomDigits = String(Math.floor(1000 + Math.random() * 9000));
-	// 	return `Q-${yyyy}${mm}${dd}-${randomDigits}`;
-	// }
-
-	// Use custom hook to watch quoteItems
-	const quoteItems = useQuoteItems(control);
-
-	// Compute total prices dynamically
-	React.useEffect(() => {
-		quoteItems.forEach((item, index) => {
-			const totalPrice = item.quantity * item.unitPrice || 0;
-			setValue(`quoteItems.${index}.totalPrice`, totalPrice);
-		});
-	}, [quoteItems, setValue]);
 
 	// Generate quote number
-	React.useEffect(() => {
+	useEffect(() => {
 		if (initialData?.quoteNumber) {
 			setQuoteNumber(initialData.quoteNumber);
 			setValue('quoteNumber', initialData.quoteNumber);
@@ -232,7 +202,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 			setQuoteNumber(quoteNum);
 			setValue('quoteNumber', quoteNum);
 		}
-	}, [initialData, setValue]);
+	}, [initialData, setValue, formValues]);
 
 	const next = async () => {
 		const fields = steps[currentStep].fields;
@@ -243,11 +213,10 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 
 		if (!output) return;
 
-		console.log('What Is Step', fields);
 		if (currentStep < steps.length - 1) {
-			// if (currentStep === steps.length - 3) {
-			// 	await form.handleSubmit(processForm)();
-			// }
+			if (currentStep === steps.length - 2) {
+				await form.handleSubmit(processForm)();
+			}
 			setPreviousStep(currentStep);
 			setCurrentStep((step) => step + 1);
 		}
@@ -282,7 +251,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 				)}
 			</div>
 			<Separator />
-			<div className="flex w-full py-4">
+			<div className="flex w-full py-4 md:space-x-8">
 				<div className="flex flex-col md:w-1/2">
 					<div className="space-y-4">
 						<ul className="flex gap-4">
@@ -317,13 +286,18 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 							))}
 						</ul>
 					</div>
-
 					<Form {...form}>
 						<form
 							onSubmit={form.handleSubmit(processForm)}
 							className="w-full space-y-8"
 						>
-							<div className="w-full gap-8 md:grid md:grid-cols-3">
+							<div
+								className={cn(
+									currentStep === 1
+										? 'w-full md:inline-block'
+										: 'gap-8 md:grid md:grid-cols-3'
+								)}
+							>
 								{currentStep === 0 && (
 									<>
 										<FormField
@@ -337,6 +311,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 															disabled={loading}
 															placeholder="John Doe"
 															{...field}
+															value={field.value || ''}
 														/>
 													</FormControl>
 													<FormMessage />
@@ -354,6 +329,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 															disabled={loading}
 															placeholder="johndoe@gmail.com"
 															{...field}
+															value={field.value || ''}
 														/>
 													</FormControl>
 													<FormMessage />
@@ -372,6 +348,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 															placeholder="Enter you contact number"
 															disabled={loading}
 															{...field}
+															value={field.value || ''}
 														/>
 													</FormControl>
 													<FormMessage />
@@ -389,6 +366,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 															disabled={loading}
 															placeholder="Company Name"
 															{...field}
+															value={field.value || ''}
 														/>
 													</FormControl>
 													<FormMessage />
@@ -406,7 +384,6 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 														disabled={loading}
 														onValueChange={field.onChange}
 														value={field.value}
-														defaultValue={field.value}
 													>
 														<FormControl>
 															<SelectTrigger>
@@ -441,7 +418,6 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 														disabled={loading}
 														onValueChange={field.onChange}
 														value={field.value}
-														defaultValue={field.value}
 													>
 														<FormControl>
 															<SelectTrigger>
@@ -476,7 +452,6 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 														disabled={loading}
 														onValueChange={field.onChange}
 														value={field.value}
-														defaultValue={field.value}
 													>
 														<FormControl>
 															<SelectTrigger>
@@ -513,6 +488,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 															placeholder="Enter street address"
 															disabled={loading}
 															{...field}
+															value={field.value || ''}
 														/>
 													</FormControl>
 													<FormMessage />
@@ -531,6 +507,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 															placeholder="XXX XXX"
 															disabled={loading}
 															{...field}
+															value={field.value || ''}
 														/>
 													</FormControl>
 													<FormMessage />
@@ -548,6 +525,7 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 															placeholder="Enter you contact number"
 															disabled={loading}
 															{...field}
+															value={field.value || ''}
 														/>
 													</FormControl>
 													<FormMessage />
@@ -567,8 +545,8 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 													<FormControl>
 														<Input
 															disabled
-															defaultValue={field.value}
 															{...field}
+															value={field.value || ''}
 														/>
 													</FormControl>
 													<FormMessage />
@@ -584,15 +562,13 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 													<Select
 														disabled={loading}
 														onValueChange={field.onChange}
-														value={field.value as string}
-														defaultValue={field.value as string}
+														value={field.value || ''}
+														defaultValue={field.value || ''}
 													>
 														<FormControl>
 															<SelectTrigger>
 																<SelectValue
-																	defaultValue={
-																		field.value as string
-																	}
+																	defaultValue={field.value || ''}
 																	placeholder="Select tax"
 																/>
 															</SelectTrigger>
@@ -621,7 +597,6 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 													<FormControl>
 														<Input
 															type="date"
-															placeholder="Valid until"
 															disabled={loading}
 															{...field}
 														/>
@@ -641,37 +616,13 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 															placeholder="Comment"
 															disabled={loading}
 															{...field}
+															value={field.value || ''}
 														/>
 													</FormControl>
 													<FormMessage />
 												</FormItem>
 											)}
 										/>
-										{/* <FormField
-											control={form.control}
-											name="tags"
-											render={({ field }) => (
-												<FormItem className="col-span-full">
-													<FormLabel>Tag</FormLabel>
-													<FormControl>
-														<TagInput
-															{...field}
-															placeholder="Enter a topic"
-															tags={tags}
-															className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-															setTags={(newTags) => {
-																setTags(newTags);
-																form.setValue(
-																	'tags',
-																	newTags as [Tag, ...Tag[]]
-																);
-															}}
-														/>
-													</FormControl>
-													<FormMessage />
-												</FormItem>
-											)}
-										/> */}
 									</>
 								)}
 								{currentStep === 2 && (
@@ -693,18 +644,19 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 														)}
 													>
 														{`Quotation Item ${index + 1}`}
-
-														<Button
-															variant="outline"
-															size="icon"
-															className="absolute right-8"
-															onClick={() => remove(index)}
-														>
-															<Icon
-																icon="lucide:trash-2"
-																className="h-4 w-4"
-															/>
-														</Button>
+														{index >= 1 && (
+															<Button
+																variant="outline"
+																size="icon"
+																className="absolute right-8"
+																onClick={() => remove(index)}
+															>
+																<Icon
+																	icon="lucide:trash-2"
+																	className="h-4 w-4"
+																/>
+															</Button>
+														)}
 														{errors?.quoteItems?.[index] && (
 															<span className="alert absolute right-8">
 																<AlertTriangleIcon className="h-4 w-4 text-red-700" />
@@ -730,6 +682,10 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 																				type="text"
 																				disabled={loading}
 																				{...field}
+																				value={
+																					field.value ||
+																					''
+																				}
 																			/>
 																		</FormControl>
 																		<FormMessage />
@@ -749,6 +705,10 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 																				type="text"
 																				disabled={loading}
 																				{...field}
+																				value={
+																					field.value ||
+																					''
+																				}
 																			/>
 																		</FormControl>
 																		<FormMessage />
@@ -770,17 +730,20 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 																					field.onChange
 																				}
 																				value={
-																					field.value as string
+																					field.value ||
+																					''
 																				}
 																				defaultValue={
-																					field.value as string
+																					field.value ||
+																					''
 																				}
 																			>
 																				<FormControl>
 																					<SelectTrigger className="rounded-r-none p-1">
 																						<SelectValue
 																							defaultValue={
-																								field.value as string
+																								field.value ||
+																								''
 																							}
 																							placeholder="Select tax"
 																						/>
@@ -826,6 +789,34 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 																						loading
 																					}
 																					{...field}
+																					value={
+																						field.value ||
+																						''
+																					}
+																					onChange={(
+																						e
+																					) => {
+																						const parsedValue =
+																							parseFloat(
+																								e
+																									.target
+																									.value
+																							) || 0;
+																						field.onChange(
+																							parsedValue
+																						); // Update the field value
+
+																						// Update the total price dynamically
+																						const unitPrice =
+																							form.getValues(
+																								`quoteItems.${index}.unitPrice`
+																							) || 0;
+																						form.setValue(
+																							`quoteItems.${index}.totalPrice`,
+																							parsedValue *
+																								unitPrice
+																						);
+																					}}
 																				/>
 																			</FormControl>
 																			<FormMessage />
@@ -843,7 +834,40 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 																			<Input
 																				type="number"
 																				disabled={loading}
-																				{...field}
+																				{...field} // Spread field properties
+																				value={
+																					field.value ||
+																					''
+																				} // Ensure no undefined value
+																				onChange={(e) => {
+																					const unitPrice =
+																						parseFloat(
+																							e.target
+																								.value
+																						) || 0;
+																					field.onChange(
+																						unitPrice
+																					); // Update unit price
+																					const quantity =
+																						form.getValues(
+																							`quoteItems.${index}.quantity`
+																						) || 0; // Get current quantity
+																					const totalPrice =
+																						quantity *
+																						unitPrice;
+																					// Update the total price only if both values are valid
+																					if (
+																						quantity >=
+																							0 &&
+																						unitPrice >=
+																							0
+																					) {
+																						form.setValue(
+																							`quoteItems.${index}.totalPrice`,
+																							totalPrice
+																						);
+																					}
+																				}}
 																			/>
 																		</FormControl>
 																		<FormMessage />
@@ -872,12 +896,30 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 												</AccordionItem>
 											</Accordion>
 										))}
+										<div className="mt-4 flex justify-center">
+											<Button
+												type="button"
+												className="flex justify-center"
+												size={'lg'}
+												onClick={() =>
+													append({
+														product: '',
+														description: '',
+														unitId: '',
+														quantity: 0,
+														unitPrice: 0,
+														totalPrice: 0,
+													})
+												}
+											>
+												Add More
+											</Button>
+										</div>
 									</>
 								)}
 							</div>
 						</form>
 					</Form>
-
 					{/* Navigation */}
 					<div className="mt-8 pt-5">
 						<div className="flex justify-between">
@@ -887,7 +929,6 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 								disabled={currentStep === 0}
 								className="rounded bg-white px-2 py-1 text-sm font-semibold text-sky-900 shadow-sm ring-1 ring-inset ring-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
 							>
-								<span className="sr-only">Previous Step</span>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									fill="none"
@@ -928,9 +969,12 @@ const QuotationCreateForm: React.FC<ProfileFormType> = ({ initialData, categorie
 						</div>
 					</div>
 				</div>
+				<div className="w-full md:w-1/2">
+					<QuotationPreview previewData={formValues} />
+				</div>
 			</div>
 		</>
 	);
 };
 
-export default QuotationCreateForm;
+export default ProfileCreateForm;
